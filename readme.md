@@ -23,12 +23,12 @@ db.config.server= 'localhost';
 db.config.database = 'test';
 
 var context = req; // the request obect or any object that you want to use to share a connection and syncronice commands. 
-db.executeQuery({}, 'SELECT TOP 1 * FROM test WHERE id = @id', [{name: 'id', value : '1'}], function (err, recordset) {
+db.executeQuery(context, 'SELECT TOP 1 * FROM test WHERE id = @id', [{name: 'id', value : '1'}], function (err, recordset) {
   console.log(recordset[0].id);
   console.log(recordset[0].test);
 });
 
-
+```
 
 ## How it works
 
