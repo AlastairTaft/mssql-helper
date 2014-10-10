@@ -29,6 +29,20 @@ db.executeQuery(context, 'SELECT TOP 1 * FROM test WHERE id = @id', [{name: 'id'
 });
 
 ```
+### Transaction
+
+	var contexto = {};
+	db.beginTran(contexto,function(err){
+		db.executeQuery(contexto, "insert into Table VALUES(1, 'text 1')", function(err, recordset){
+			console.log('first INSERT');
+		});
+		db.executeQuery(contexto, "insert into Table VALUES(2, 'text 2')", function(err, recordset){
+			console.log('second INSERT');
+			db.commitTran(contexto, function(err){
+				console.log('commit');
+			});
+		});
+	});
 
 ## How it works
 
@@ -41,9 +55,20 @@ push the command into a queue made in context object and run it. The context par
 
 ### client.runSync(context, cn, sql, [params, callback])
 
-some as executeQuery except that a connection must be supplied.
+some as executeQuery except that a connection must be supplied. if is in transaction can be context.sqlTransaction)
 
 ### client.run(cn, sql, [params, callback])
 
 execute a command without queuing.
 
+### client.beginTran(context, [callback])
+
+begin a transaction.
+
+### client.commitTran(context, [callback])
+
+commit a transaction.
+
+### client.rollbackTran(context, [callback])
+
+rollback a transaction.

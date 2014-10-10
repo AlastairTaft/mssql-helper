@@ -1,6 +1,6 @@
 {
   "name": "mssql-helper",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "data access layer for mssql that allows connection reuse per request or context, syncronization of commands",
   "author": "Marcos Mellibovsky <mellibo@arsoft.com.ar>",
   "main": "lib/db.js",

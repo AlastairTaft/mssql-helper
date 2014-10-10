@@ -10,13 +10,13 @@ var config = {
     }
 }
 
-
-module.exports = { executeQuery : executeQuery, config : config, run : run, createConnection: createConnection, runSync: runSync};
+module.exports = {executeQuery : executeQuery, config : config, run : run, createConnection: createConnection, runSync: runSync, isInTransaction:isInTransaction, beginTran:beginTran, commitTran:commitTran, rollbackTran:rollbackTran};
 
 function executeQuery(context, sql, params, callback){
 	if (context.sqlConnection == undefined) {
 		createConnection( function(cn){
 			context.sqlConnection = cn;
+			context.isInTransaction = false;
 			runSync(context, context.sqlConnection, sql, params, callback);
 		});
 		return;
@@ -55,7 +55,7 @@ function runQueue(context){
 		return;	
 	}
 	context.dbRunning = true;
-	run(context.dbQueue[0].cn, context.dbQueue[0].sql, context.dbQueue[0].params, function(err, recordset){
+	run(context.isInTransaction ? context.sqlTransaction : context.sqlConnection, context.dbQueue[0].sql, context.dbQueue[0].params, function(err, recordset){
 		context.dbQueue[0].callback(err, recordset);
 		if (err) {
 			context.dbRunning = false;
@@ -82,5 +82,42 @@ function run(cn, sql, params, callback){
 			throw new Error(err);
 		}
 		callback(err, recordset);
+	});
+}
+
+function isInTransaction(context, callback){
+	return context.isInTransaction != undefined && context.isInTransaction == true;
+}
+
+function beginTran(context, callback){
+	createConnection(function(cn){
+		context.sqlConnection = cn;
+		context.sqlTransaction = context.sqlConnection .transaction();
+		context.sqlTransaction.begin(function(){
+			context.isInTransaction = true;
+			callback();
+		});
+	});
+}
+
+function commitTran(context, callback){
+	context.sqlTransaction.commit(function(err){
+		context.isInTransaction = false;
+		if (err) {
+			console.log(err);
+			throw new Error(err);
+		}
+		callback(err);
+	});
+}
+
+function rollbackTran(context, callback){
+	context.sqlTransaction.rollback(function(err){
+		context.isInTransaction = false;
+		if (err) {
+			console.log(err);
+			throw new Error(err);
+		}
+		callback(err);
 	});
 }

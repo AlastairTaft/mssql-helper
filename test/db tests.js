@@ -16,12 +16,13 @@ describe('mssql db access', function (){
 			var hora1, hora2;
 			var fin1 = false, fin2 = false;
 			db.createConnection(function(cn){
-				db.runSync(contexto, cn, "WAITFOR DELAY '00:00:01'; SELECT getdate() as hora", function (err, recordset){
+				debugger;
+				db.executeQuery(contexto, "WAITFOR DELAY '00:00:01'; SELECT getdate() as hora", function (err, recordset){
 					fin1 = true;
 					hora1 = recordset[0].hora;
 					fin2.should.equal(false);
 				});
-				db.runSync(contexto, cn, 'SELECT getdate() as hora', function (err, recordset){
+				db.executeQuery(contexto, 'SELECT getdate() as hora', function (err, recordset){
 					fin2 = true;
 					hora2 = recordset[0].hora;
 					fin1.should.equal(true);
@@ -32,13 +33,18 @@ describe('mssql db access', function (){
 		});
 	});	
 	describe('executeQuery', function (){
+		beforeEach(function(done){
+			db.executeQuery({}, "TRUNCATE TABLE test; insert INTO test VALUES (1,'test')", [] , function(err, recordset){
+				done();
+			});
+	  	});
 		it('ejecuta query parametrizado que retorna 1 reg.', function(done){
 		    db.executeQuery({}, 'SELECT TOP 1 * FROM test WHERE id = @id', [{name: 'id', value : '1'}], function (err, recordset) {
 			  should.not.exist(err);
 			  should.exist(recordset);
 			  recordset.should.be.an('array');
-			  recordset[0].should.be.an('object');
 			  recordset.length.should.equal(1);
+			  recordset[0].should.be.an('object');
 			  recordset[0].id.should.equal(1);
 			  recordset[0].text.should.equal('test');
 
@@ -54,6 +60,51 @@ describe('mssql db access', function (){
 			  done();
 			});
 		});
+	});
+	describe('transacciones.', function(){
+		beforeEach(function(done){
+			db.executeQuery({}, "TRUNCATE TABLE test; insert INTO test VALUES (1,'test')", [] , function(err, recordset){
+				done();
+			});
+	  	});
+		it('isInTransaction debe retornar true luego de llamar a Begin Tran.', function(done){
+			var contexto = {};
+			db.beginTran(contexto,function(err){
+				should.not.exist(err);
+				var text = new Date();
+				db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){
+					db.isInTransaction(contexto, function(err, value){
+						should.not.exist(err);
+						value.should.equal(true);
+					});
+				});
+				db.executeQuery(contexto, "insert into test VALUES(2, '" + text + "')", function(err, recordset){
+					db.commitTran(contexto, function(err){
+						should.not.exist(err);
+						db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
+							recordset.length.should.equal(2);
+							done();
+						});
+					});
+				});
+			});
+		});
+		it('rollbackTran debe abortar la transaccion', function(done){
+			var contexto = {};
+			db.beginTran(contexto,function(err){
+				var text = new Date();
+				db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){});
+				db.executeQuery(contexto, "insert into test VALUES(2, '" + text + "')", function(err, recordset){
+					db.rollbackTran(contexto, function(err){
+						should.not.exist(err);
+						db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
+							recordset.length.should.equal(0);
+							done();
+						});
+					});
+				});
+			});
+		});	
 	});
 });
 
