@@ -1,14 +1,13 @@
 {
   "name": "mssql-helper",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "data access layer for mssql that allows connection reuse per request or context, syncronization of commands",
   "author": "Marcos Mellibovsky <mellibo@arsoft.com.ar>",
-  "main": "lib/db.js",
+  "main": "db.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/mellibo/mssql-helper"
   },
-  "main":"db.js",
   "licenses": [
     {
       "type": "MIT",
@@ -32,7 +31,9 @@
     "data access layer"
   ],
   "dependencies": {
-    "mssql": "^1.2.0"
+    "moment": "^2.8.3",
+    "mssql": "^1.2.0",
+    "winston": "^0.8.1"
   },
   "devDependencies": {
     "chai": "^1.9.2",

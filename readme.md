@@ -31,19 +31,19 @@ db.executeQuery(context, 'SELECT TOP 1 * FROM test WHERE id = @id', [{name: 'id'
 ```
 ### Transaction
 
-	var contexto = {};
+	var contexto = {}; //can be the request object
 	db.beginTran(contexto,function(err){
-		db.executeQuery(contexto, "insert into Table VALUES(1, 'text 1')", function(err, recordset){
-			console.log('first INSERT');
-		});
-		db.executeQuery(contexto, "insert into Table VALUES(2, 'text 2')", function(err, recordset){
-			console.log('second INSERT');
-			db.commitTran(contexto, function(err){
-				console.log('commit');
-			});
+		console.log('BEGIN TRAN');
+	});
+	db.executeQuery(contexto, "WAITFOR DELAY '00:00:01'; insert into Table VALUES(1, 'text 1')", function(err, recordset){
+		console.log('first INSERT');
+	});
+	db.executeQuery(contexto, "insert into Table VALUES(2, 'text 2')", function(err, recordset){
+		console.log('second INSERT');
+		db.commitTran(contexto, function(err){
+			console.log('commit');
 		});
 	});
-
 ## How it works
 
 
@@ -60,6 +60,10 @@ some as executeQuery except that a connection must be supplied. if is in transac
 ### client.run(cn, sql, [params, callback])
 
 execute a command without queuing.
+
+### client.isInTransaction(context)
+
+return true if it is in transaction.
 
 ### client.beginTran(context, [callback])
 

@@ -16,7 +16,6 @@ describe('mssql db access', function (){
 			var hora1, hora2;
 			var fin1 = false, fin2 = false;
 			db.createConnection(function(cn){
-				debugger;
 				db.executeQuery(contexto, "WAITFOR DELAY '00:00:01'; SELECT getdate() as hora", function (err, recordset){
 					fin1 = true;
 					hora1 = recordset[0].hora;
@@ -71,21 +70,12 @@ describe('mssql db access', function (){
 			var contexto = {};
 			db.beginTran(contexto,function(err){
 				should.not.exist(err);
-				var text = new Date();
-				db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){
-					db.isInTransaction(contexto, function(err, value){
-						should.not.exist(err);
-						value.should.equal(true);
-					});
-				});
-				db.executeQuery(contexto, "insert into test VALUES(2, '" + text + "')", function(err, recordset){
-					db.commitTran(contexto, function(err){
-						should.not.exist(err);
-						db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
-							recordset.length.should.equal(2);
-							done();
-						});
-					});
+			});
+			var text = new Date();
+			db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){
+				db.isInTransaction(contexto).should.equal(true);
+				db.rollbackTran(contexto, function(){
+					done();
 				});
 			});
 		});
