@@ -15,18 +15,16 @@ describe('mssql db access', function (){
 			var contexto = {};
 			var hora1, hora2;
 			var fin1 = false, fin2 = false;
-			db.createConnection(function(cn){
-				db.executeQuery(contexto, "WAITFOR DELAY '00:00:01'; SELECT getdate() as hora", function (err, recordset){
-					fin1 = true;
-					hora1 = recordset[0].hora;
-					fin2.should.equal(false);
-				});
-				db.executeQuery(contexto, 'SELECT getdate() as hora', function (err, recordset){
-					fin2 = true;
-					hora2 = recordset[0].hora;
-					fin1.should.equal(true);
-					done();
-				});
+			db.executeQuery(contexto, "WAITFOR DELAY '00:00:01'; SELECT GETDATE() AS hora", function (err, recordset){
+				fin1 = true;
+				hora1 = recordset[0].hora;
+				fin2.should.equal(false);
+			});
+			db.executeQuery(contexto, ' SELECT GETDATE() AS hora', function (err, recordset){
+				fin2 = true;
+				hora2 = recordset[0].hora;
+				fin1.should.equal(true);
+				done();
 			});
 
 		});
@@ -62,7 +60,7 @@ describe('mssql db access', function (){
 	});
 	describe('transacciones.', function(){
 		beforeEach(function(done){
-			db.executeQuery({}, "TRUNCATE TABLE test; insert INTO test VALUES (1,'test')", [] , function(err, recordset){
+			db.executeQuery({}, "TRUNCATE TABLE test; insert INTO test VALUES (1,'test')", function(err, recordset){
 				done();
 			});
 	  	});
@@ -75,26 +73,28 @@ describe('mssql db access', function (){
 			db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){
 				db.isInTransaction(contexto).should.equal(true);
 				db.rollbackTran(contexto, function(){
-					done();
+					db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
+						recordset.length.should.equal(0);
+						done();
+					});
 				});
 			});
 		});
 		it('rollbackTran debe abortar la transaccion', function(done){
 			var contexto = {};
-			db.beginTran(contexto,function(err){
-				var text = new Date();
-				db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){});
-				db.executeQuery(contexto, "insert into test VALUES(2, '" + text + "')", function(err, recordset){
-					db.rollbackTran(contexto, function(err){
-						should.not.exist(err);
-						db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
-							recordset.length.should.equal(0);
-							done();
-						});
+			db.beginTran(contexto,function(err){});
+			var text = new Date();
+			db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){});
+			db.executeQuery(contexto, "insert into test VALUES(2, '" + text + "')", function(err, recordset){
+				db.rollbackTran(contexto, function(err){
+					should.not.exist(err);
+					db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
+						recordset.length.should.equal(0);
+						done();
 					});
 				});
 			});
-		});	
+		});
 	});
 });
 
