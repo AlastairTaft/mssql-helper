@@ -11,7 +11,7 @@ db.config.database = 'test';
 
 describe('mssql db access', function (){
 	describe('acceso por contexto debe ser sincronico', function(){
-		it('si ejecuto 2 queries con runSync, el segundo debe esperar que termine el primero para ejecutarse', function(done){
+		it('si ejecuto 2 queries con executeQuery, el segundo debe esperar que termine el primero para ejecutarse', function(done){
 			var contexto = {};
 			var hora1, hora2;
 			var fin1 = false, fin2 = false;

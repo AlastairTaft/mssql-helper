@@ -21,7 +21,7 @@ function initLogger() {
     winston.clear();
     winston.add(winston.transports.Console,
                 { colorize: true, level: level,
-                    'timestamp': function () {var m = new Moment(); return m.format("(YYYY-MM-DD HH:mm:ss)"); } });
+                    'timestamp': function () {var m = new Moment(); return m.format("(YYYY-MM-DD HH:mm:ss)") + '; mssql-helper ;'; } });
 }
 
 initLogger();
@@ -31,7 +31,7 @@ module.exports = {executeQuery : executeQuery, config : config, run : run, creat
 var callbackTrans = null;
 
 function executeQuery(context, sql, params, callback){
-	winston.debug("mssql-helper: executeQuery: " + sql);
+	winston.debug("executeQuery: " + sql);
 	prepareContext(context);
 	if (typeof params == 'function'){
 		callback = params;
@@ -42,12 +42,7 @@ function executeQuery(context, sql, params, callback){
 	if (!context.sqlConnecting && !context.sqlConnected) {
 		context.sqlConnecting = true;
 		createConnection(context, function(cn){
-			context.sqlConnection = cn;
-			context.sqlConnection.connect(function (err) {
-				context.sqlConnected = true;
-				context.sqlConnecting = false;
-				if (!context.dbRunning) runQueue(context);
-			});
+			if (!context.dbRunning) runQueue(context);
 		});
 		return;
 	}
@@ -56,16 +51,17 @@ function executeQuery(context, sql, params, callback){
 }
 
 function createConnection(context, callback) { 
-	winston.debug("mssql-helper: createConnection");
+	winston.debug("createConnection");
 	if (typeof context == 'function'){
 		callback = context;
 		context = null;
 	}
-	context.sqlConnected = false;
-	context.sqlConnecting = true;
-
+	if (context != null) {
+		context.sqlConnected = false;
+		context.sqlConnecting = true;
+	}
 	var cn = new mssql.Connection(config, function (err){
-		winston.debug("mssql-helper: createConnection callbackTrans.");
+		winston.debug("createConnection callback.");
 
 		if (err) {
 			winston.error(err);
@@ -74,20 +70,22 @@ function createConnection(context, callback) {
 		if (context != null) {
 			context.sqlConnection = cn;
 			context.sqlTransaction = context.sqlConnection.transaction();
+			context.sqlConnected = true;
+			context.sqlConnecting = false;
 		}
+
 		callback(cn);
 	}); 
 }
 
 function runQueue(context){
-	winston.debug("mssql-helper: runQueue " + context.isWaitingTransaction + " - " + context.sqlConnecting + " - " + context.dbQueue.length);
+	winston.debug("runQueue " + context.isWaitingTransaction + " - " + context.sqlConnecting + " - " + context.dbQueue.length);
 	if (context.dbQueue.length == 0){
 		context.dbRunning = false;
 		return;	
 	}
 	if (context.isWaitingTransaction || context.sqlConnecting)	return;	
 	context.dbRunning = true;
-	winston.debug("mssql-helper: runQueue 2.");
 	run(context.isInTransaction ? context.sqlTransaction : context.sqlConnection, context.dbQueue[0].sql, context.dbQueue[0].params, function(err, recordset){
 		context.dbQueue[0].callback(err, recordset);
 		if (err) {
@@ -105,13 +103,13 @@ function run(cn, sql, params, callback){
 		callback = params;
 		params = null;
 	}
-	winston.debug("mssql-helper: run: " + sql);
+	winston.debug("run: " + sql);
 	var request = new mssql.Request(cn);
 	if (params instanceof Array) params.forEach(function (item){
 		request.input(item.name, item.value);
 	});
 	request.query(sql, function (err, recordset){
-		winston.debug("mssql-helper: run callbackTrans: " + sql);
+		winston.debug("run ends: " + sql);
 		if (err) {
 			winston.error(err);
 			throw new Error(err);
@@ -136,29 +134,25 @@ function prepareContext(context) {
 }
 
 function beginTran(context, callback){
-	winston.debug("mssql-helper: beginTran.");
+	winston.debug("beginTran.");
 	prepareContext(context);
 	context.isWaitingTransaction = true;
 	createConnection(context, function(cn){
-		context.sqlConnection = cn;
-		context.sqlConnection.connect(function (err) {
-			context.sqlConnected = true;
-			context.sqlConnecting = false;
-			context.sqlTransaction.begin(function(){
-				winston.debug("mssql-helper: beginTran callback.");
-				context.isInTransaction = true;
-				context.isWaitingTransaction = false;
-				callback();
-				if (!context.dbRunning && context.dbQueue.length != 0) runQueue(context);
-			});
+		context.sqlTransaction.begin(function(){
+			winston.debug("beginTran callback.");
+			context.isInTransaction = true;
+			context.isWaitingTransaction = false;
+			callback();
+			if (!context.dbRunning && context.dbQueue.length != 0) runQueue(context);
 		});
 	});
 }
 
 function commitTran(context, callback){
-	winston.debug("mssql-helper: commitTran.");
+	winston.debug("commitTran.");
 	context.isWaitingTransaction = true;
 	context.sqlTransaction.commit(function(err){
+		winston.debug("commitTran callback.");
 		context.isInTransaction = false;
 		context.isWaitingTransaction = false;
 		if (err) {
@@ -170,9 +164,10 @@ function commitTran(context, callback){
 }
 
 function rollbackTran(context, callback){
-	winston.debug("mssql-helper: rollbackTran.");
+	winston.debug("rollbackTran.");
 	context.isWaitingTransaction = true;	
 	context.sqlTransaction.rollback(function(err){
+		winston.debug("rollbackTran callback.");
 		context.isInTransaction = false;
 		context.isWaitingTransaction = false;
 		if (err) {
