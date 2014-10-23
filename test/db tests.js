@@ -72,12 +72,7 @@ describe('mssql db access', function (){
 			var text = new Date();
 			db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){
 				db.isInTransaction(contexto).should.equal(true);
-				db.rollbackTran(contexto, function(){
-					db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
-						recordset.length.should.equal(0);
-						done();
-					});
-				});
+				db.rollbackTran(contexto, function(){done();});
 			});
 		});
 		it('rollbackTran debe abortar la transaccion', function(done){
@@ -85,9 +80,34 @@ describe('mssql db access', function (){
 			db.beginTran(contexto,function(err){});
 			var text = new Date();
 			db.executeQuery(contexto, "insert into test VALUES(1, '" + text + "')", function(err, recordset){});
-			db.executeQuery(contexto, "insert into test VALUES(2, '" + text + "')", function(err, recordset){
-				db.rollbackTran(contexto, function(err){
-					should.not.exist(err);
+			db.executeQuery(contexto, "insert into test VALUES(2, '" + text + "')", function(err, recordset){});
+			db.rollbackTran(contexto, function(err){
+				should.not.exist(err);
+				db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
+					recordset.length.should.equal(0);
+					done();
+				});
+			});
+		});
+		it('commitTran debe esperar que terminen los commando en cola apra mandar el commit.', function(done){
+			var contexto = {};
+			db.beginTran(contexto,function(err){
+				var text = new Date();
+				db.executeQuery(contexto, "WAITFOR DELAY '00:00:01';insert into test VALUES(1, '" + text + "')", function(err, recordset){});
+				db.commitTran(contexto, function(){
+					db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
+						recordset.length.should.equal(1);
+						done();
+					});
+				});
+			});
+		});
+		it('rollbackTran debe esperar que terminen los commando en cola apra mandar el rollback.', function(done){
+			var contexto = {};
+			db.beginTran(contexto,function(err){
+				var text = new Date();
+				db.executeQuery(contexto, "WAITFOR DELAY '00:00:01';insert into test VALUES(1, '" + text + "')", function(err, recordset){});
+				db.rollbackTran(contexto, function(){
 					db.executeQuery({}, "SELECT * FROM test WHERE text = '" + text + "'", function (err, recordset){
 						recordset.length.should.equal(0);
 						done();

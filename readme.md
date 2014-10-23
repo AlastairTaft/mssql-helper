@@ -1,6 +1,6 @@
 # mssql-helper
 
-Microsoft Sql Server helper that support query queues to support transactions and multiple statements.
+Microsoft Sql Server helper that support transactions per request, query queueing.
 
 For use with Node.js and mssql: https://github.com/patriksimek/node-mssql
 
@@ -52,10 +52,6 @@ db.executeQuery(context, 'SELECT TOP 1 * FROM test WHERE id = @id', [{name: 'id'
 ### client.executeQuery(context, sql, [params, callback])
 
 push the command into a queue made in context object and run it. The context param can be the request to use a connection (or transaction) per request. If there is no active connection in the context, a connection is created.
-
-### client.runSync(context, cn, sql, [params, callback])
-
-some as executeQuery except that a connection must be supplied. if is in transaction can be context.sqlTransaction)
 
 ### client.run(cn, sql, [params, callback])
 

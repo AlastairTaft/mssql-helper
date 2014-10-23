@@ -32,15 +32,13 @@ var callbackTrans = null;
 
 function executeQuery(context, sql, params, callback){
 	winston.debug("executeQuery: " + sql);
-	prepareContext(context);
 	if (typeof params == 'function'){
 		callback = params;
 		params = null;
 	}
 	pushCmd(context, sql, params, callback);
 	
-	if (!context.sqlConnecting && !context.sqlConnected) {
-		context.sqlConnecting = true;
+	if (context.sqlConnecting == undefined) {
 		createConnection(context, function(cn){
 			if (!context.dbRunning) runQueue(context);
 		});
@@ -57,6 +55,7 @@ function createConnection(context, callback) {
 		context = null;
 	}
 	if (context != null) {
+		prepareContext(context);
 		context.sqlConnected = false;
 		context.sqlConnecting = true;
 	}
@@ -73,7 +72,6 @@ function createConnection(context, callback) {
 			context.sqlConnected = true;
 			context.sqlConnecting = false;
 		}
-
 		callback(cn);
 	}); 
 }
@@ -86,14 +84,19 @@ function runQueue(context){
 	}
 	if (context.isWaitingTransaction || context.sqlConnecting)	return;	
 	context.dbRunning = true;
+	context.runningCommand = true;
+	if (context.isInTransaction) debugger;
 	run(context.isInTransaction ? context.sqlTransaction : context.sqlConnection, context.dbQueue[0].sql, context.dbQueue[0].params, function(err, recordset){
-		context.dbQueue[0].callback(err, recordset);
+		var cb = context.dbQueue[0].callback
 		if (err) {
 			context.dbRunning = false;
+			context.runningCommand = false;
 			winston.error(err);
 			throw new Error(err);
 		}
 		context.dbQueue.splice(0, 1);
+		context.runningCommand = false;
+		cb(err, recordset);
 		runQueue(context);
 	});
 }
@@ -123,21 +126,33 @@ function isInTransaction(context){
 }
 
 function prepareContext(context) {
-	if (context.dbQueue != undefined) return;
+	winston.debug("prepareContext");
+	//if (context.sqlConnection != undefined) return;
 	context.sqlConnection = null;
 	context.sqlTransaction = null;
 	context.isInTransaction = false;
 	context.isWaitingTransaction = false;
-	context.dbQueue = [];
+	if (context.dbQueue == undefined) context.dbQueue = [];
 	context.dbRunning = false;
 	context.sqlConnecting= false;
+	context.runningCommand = false;
 }
 
 function beginTran(context, callback){
 	winston.debug("beginTran.");
-	prepareContext(context);
-	context.isWaitingTransaction = true;
+	if (context.sqlConnecting || context.sqlConnected){
+		context.isWaitingTransaction = true;
+		context.sqlTransaction.begin(function(){
+			winston.debug("beginTran callback.");
+			context.isInTransaction = true;
+			context.isWaitingTransaction = false;
+			callback();
+			if (!context.dbRunning && context.dbQueue.length != 0) runQueue(context);
+		});
+		return;
+	}
 	createConnection(context, function(cn){
+		context.isWaitingTransaction = true;
 		context.sqlTransaction.begin(function(){
 			winston.debug("beginTran callback.");
 			context.isInTransaction = true;
@@ -150,6 +165,18 @@ function beginTran(context, callback){
 
 function commitTran(context, callback){
 	winston.debug("commitTran.");
+	if (context.dbQueue.length != 0) {
+		lastCallback = context.dbQueue[context.dbQueue.length-1].callback;
+		context.dbQueue[context.dbQueue.length-1].callback = function(err, recordset){
+			lastCallback(err, recordset);
+			doCommit(context, callback);
+		}
+		return;
+	}
+	doCommit(context, callback);
+}
+
+function doCommit(context, callback){
 	context.isWaitingTransaction = true;
 	context.sqlTransaction.commit(function(err){
 		winston.debug("commitTran callback.");
@@ -164,8 +191,21 @@ function commitTran(context, callback){
 }
 
 function rollbackTran(context, callback){
-	winston.debug("rollbackTran.");
-	context.isWaitingTransaction = true;	
+	winston.debug("rollbackTran.", { dbQueue : context.dbQueue.length, dbRunning: context.dbRunning, runningCommand: context.runningCommand, sqlConnecting: context.sqlConnecting});
+	if (context.dbQueue.length != 0) {
+		lastCallback = context.dbQueue[context.dbQueue.length-1].callback;
+		context.dbQueue[context.dbQueue.length-1].callback = function(err, recordset){
+			lastCallback(err, recordset);
+			doRollback(context, callback);
+		}
+		return;
+	}
+	doRollback(context, callback);
+}
+
+function doRollback(context, callback){
+	winston.debug("doRollback.");
+	context.isWaitingTransaction = true;
 	context.sqlTransaction.rollback(function(err){
 		winston.debug("rollbackTran callback.");
 		context.isInTransaction = false;
@@ -179,5 +219,6 @@ function rollbackTran(context, callback){
 }
 
 function pushCmd(context, sql, params, callback){
+	if (context.dbQueue == undefined) context.dbQueue = [];
 	context.dbQueue.push({sql:sql, params:params, callback:callback});
 }
