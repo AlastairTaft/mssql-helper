@@ -120,6 +120,18 @@ describe('mssql db access', function (){
 			db.beginTran(contexto, function(err){});
 			expect(function(){db.commitTran(contexto);}).to.not.throw(done());
 		});
+		it('no se pueden anidar transacciones', function(done){
+			var contexto = {};
+			db.beginTran(contexto, function(err){});
+			expect(function(){db.beginTran(contexto);}).to.throw();
+			done();
+		});
+		it('no se puede llamar a createConnection anidado en el mismo contexto', function(done){
+			var contexto = {};
+			db.createConnection(contexto);
+			expect(function(){db.createConnection(contexto);}).to.throw();
+			done();
+		});
 	});
 	describe('callbacks opcionales', function(){
 		it('createConnection sin callback', function (done){

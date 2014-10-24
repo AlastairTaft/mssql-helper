@@ -40,9 +40,9 @@ db.executeQuery(context, 'SELECT TOP 1 * FROM test WHERE id = @id', [{name: 'id'
 	});
 	db.executeQuery(contexto, "insert into Table VALUES(2, 'text 2')", function(err, recordset){
 		console.log('second INSERT');
-		db.commitTran(contexto, function(err){
-			console.log('commit');
-		});
+	});
+	db.commitTran(contexto, function(err){
+		console.log('commit');
 	});
 ## How it works
 

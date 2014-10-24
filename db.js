@@ -16,7 +16,7 @@ var config = {
 function initLogger() {
     "use strict";
     var levelIndex = process.argv.indexOf("--level"),
-        level = ((levelIndex > -1) ? process.argv[levelIndex + 1] : "debug");
+        level = ((levelIndex > -1) ? process.argv[levelIndex + 1] : "info");
 
     winston.clear();
     winston.add(winston.transports.Console,
@@ -51,12 +51,16 @@ function executeQuery(context, sql, params, callback){
 
 function createConnection(context, callback) { 
 	winston.debug("createConnection", debugContext(context));
+
 	var cn;
 	if (typeof context == 'function'){
 		callback = context;
 		context = null;
 	}
 	if (context != null) {
+		if (context.sqlConnected || context.sqlConnecting){
+			throw new Error("can't open multiple connections in the same context. Use another context.");
+		}
 		prepareContext(context);
 		context.sqlConnected = false;
 		context.sqlConnecting = true;
@@ -143,7 +147,7 @@ function prepareContext(context) {
 	winston.debug("prepareContext");
 	context.sqlConnection = null;
 	context.sqlTransaction = null;
-	context.isInTransaction = false;
+	if (context.isInTransaction == undefined) context.isInTransaction = false;
 	context.isWaitingTransaction = false;
 	if (context.dbQueue == undefined) context.dbQueue = [];
 	context.dbRunning = false;
@@ -155,9 +159,13 @@ function prepareContext(context) {
 
 function beginTran(context, callback){
 	winston.debug("beginTran.", debugContext(context));
+	if (context.isInTransaction) {
+		throw new Error("can't nest transactions.");
+	}
+	context.isInTransaction = true;
+
 	context.beginCallback = function(cx, cb){
 		winston.debug("beginTran callback.", debugContext(cx));
-		cx.isInTransaction = true;
 		cx.isWaitingTransaction = false;
 		if (cb) cb();
 		if (!cx.dbRunning && cx.dbQueue.length != 0) runQueue(cx);
