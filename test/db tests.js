@@ -115,6 +115,33 @@ describe('mssql db access', function (){
 				});
 			});
 		});
+		it('beginTran con commitTran sin comandos no debe dar error', function(done){
+			var contexto = {};
+			db.beginTran(contexto, function(err){});
+			expect(function(){db.commitTran(contexto);}).to.not.throw(done());
+		});
+	});
+	describe('callbacks opcionales', function(){
+		it('createConnection sin callback', function (done){
+			expect(function(){db.createConnection();}).to.not.throw(done());
+		});
+		it('executeQuery sin callback', function (done){
+			var contexto = {};
+			expect(function(){db.executeQuery(contexto, 'SELECT getdate()');}).to.not.throw();
+			db.executeQuery(contexto, 'SELECT getdate()', function(){
+				done();
+			});
+		});
+		it('beginTran, commitTran sin callback', function (done){
+			var contexto = {};
+			expect(function(){db.beginTran(contexto);}).to.not.throw();
+			expect(function(){db.commitTran(contexto);}).to.not.throw(done());
+		});
+		it('beginTran, rollbackTran sin callback', function (done){
+			var contexto = {};
+			expect(function(){db.beginTran(contexto);}).to.not.throw();
+			expect(function(){db.rollbackTran(contexto);}).to.not.throw(done());
+		});
 	});
 });
 
