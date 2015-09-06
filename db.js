@@ -124,13 +124,13 @@ function run(cn, sql, params, callback){
 		callback = params;
 		params = null;
 	}
-	winston.debug("run: " + sql, debugContext(context));
+	//winston.debug("run: " + sql, debugContext(context));
 	var request = new mssql.Request(cn);
 	if (params instanceof Array) params.forEach(function (item){
 		request.input(item.name, item.value);
 	});
 	request.query(sql, function (err, recordset){
-		winston.debug("run ends: " + sql, debugContext(context));
+		//winston.debug("run ends: " + sql, debugContext(context));
 		if (err) {
 			winston.error(err);
 			throw new Error(err);
