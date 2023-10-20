@@ -1,3 +1,6 @@
+# ⚠️ Archived
+This repo is not maintained.
+
 # mssql-helper
 
 Microsoft Sql Server helper that support transactions per request, query queueing.
